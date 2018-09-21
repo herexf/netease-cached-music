@@ -161,11 +161,12 @@ class netease_music:
                 tags['artist'] = self.artist[musicId]
                 tags.save()
             except MutagenError: 
-                print ("Loading tags failed")
+                print ('Loading EasyID3 tags failed.')
             
             try:
                 # print ('picurl: ' + self.cover[musicId])
                 albumcover = urlopen(self.cover[musicId])
+                try:
                 audio = ID3(mfilepath)
                 audio['APIC'] = APIC(
                       encoding=3,
@@ -175,12 +176,14 @@ class netease_music:
                     )
                 albumcover.close()
                 audio.save()
+                except ID3NoHeaderError:
+                print ('Loading ID3 tags failed.')
             except HTTPError as e:
                 print('Error code: ', e.code)
             except URLError as e:
-                print('Error code: ', e.reason)
+                print ('Error code: ', e.reason)
             
-            print('[{}]'.format(ct+1).ljust(5) + mfilename)
+            print('[{}]'.format(ct+1).ljust(5) + mfilename + 'NMID' + musicId)
             self.getLyric(musicId)
 
 
