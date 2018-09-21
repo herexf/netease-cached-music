@@ -19,7 +19,7 @@ API = 'https://api.imjad.cn/cloudmusic/?'
 hasModu = False
 try:
     from mutagen.easyid3 import EasyID3
-    from mutagen.id3 import ID3, APIC
+    from mutagen.id3 import ID3, APIC, ID3NoHeaderError
     from mutagen.mp3 import MP3
     from mutagen import MutagenError
     hasModu = True
@@ -161,26 +161,29 @@ class netease_music:
                 tags['artist'] = self.artist[musicId]
                 tags.save()
             except MutagenError: 
-                print ("Loading tags failed")
+                print ('Loading EasyID3 tags failed.')
             
             try:
                 # print ('picurl: ' + self.cover[musicId])
                 albumcover = urlopen(self.cover[musicId])
-                audio = ID3(mfilepath)
-                audio['APIC'] = APIC(
-                      encoding=3,
-                      mime='image/jpeg',
-                      type=3, desc=u'Cover',
-                      data=albumcover.read()
-                    )
-                albumcover.close()
-                audio.save()
+                try:
+                    audio = ID3(mfilepath)
+                    audio['APIC'] = APIC(
+                          encoding=3,
+                          mime='image/jpeg',
+                          type=3, desc=u'Cover',
+                          data=albumcover.read()
+                        )
+                    albumcover.close()
+                    audio.save()
+                except ID3NoHeaderError:
+                    print ('Loading ID3 tags failed.')
             except HTTPError as e:
                 print('Error code: ', e.code)
             except URLError as e:
-                print('Error code: ', e.reason)
+                print ('Error code: ', e.reason)
             
-            print('[{}]'.format(ct+1).ljust(5) + mfilename)
+            print('[{}]'.format(ct+1).ljust(5) + '[{}]'.format(musicId).ljust(12) + mfilename)
             self.getLyric(musicId)
 
 
