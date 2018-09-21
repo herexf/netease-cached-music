@@ -20,7 +20,7 @@ hasModu = False
 try:
     from mutagen.easyid3 import EasyID3
     from mutagen.id3 import ID3, APIC, ID3NoHeaderError
-    from mutagen.mp3 import MP3
+    from mutagen.mp3 import MP3, HeaderNotFoundError
     from mutagen import MutagenError
     hasModu = True
 except:
@@ -37,7 +37,7 @@ class netease_music:
     def __init__(self, path=''):
         '''path is the directory that contains Music files(cached)'''
         if path == '':
-            path = input('input the path of cached netease_music')
+            path = input('init: Cannot find the path of cached netease_music')
         self.path = path
         safeprint('[+] Current Path: ' + path)
         os.chdir(path)
@@ -58,48 +58,58 @@ class netease_music:
         # import re
         # self.nameXpath ='//div[@class="tit"]/em[@class="f-ff2"]/text()'
         # self.lrcSentencePt=re.compile(r'\[\d+:\d+\.\d+\](.*?)\\n')         # wrong  (r'\[\d+,\d+\](\(\d+,\d+\)(\w))+\n')
-
+    
     def getId(self, name):
         return name[:name.find('-')]
-
+    
     def getInfoFromWeb(self, musicId):
         dic = {}
         url = API+'type=detail&id=' + musicId
-        info = requests.get(url).json()['songs'][0]
-        dic['artist'] = [info['ar'][0]['name']]
-        dic['title'] = [info['name']]
-        dic['cover'] = [info['al']['picUrl']]
-        dic['album'] = [info['al']['name']]
-        return dic
-
+        try:
+            info = requests.get(url).json()['songs'][0]
+            dic['artist'] = [info['ar'][0]['name']]
+            dic['title'] = [info['name']]
+            dic['cover'] = [info['al']['picUrl']]
+            dic['album'] = [info['al']['name']]
+            return dic
+        except Exception as e:
+            print('getInfoFromWeb: list index out of range.')
+    
     def getInfoFromFile(self, path):
         if not os.path.exists(path):
-            safeprint('Can not find file ' + path)
+            safeprint('getInfoFromFile: Can not find file ' + path)
             return {}
         elif hasModu:
-            return dict(MP3(path, ID3=EasyID3))
+            try:
+                fileinfo = MP3(path)
+                return dict(MP3(path, ID3=EasyID3))
+            except HeaderNotFoundError as e:
+                print('getInfoFromFile: Fail to read the file tags.')
         else:
-            print('[Error] You can use pip3 to install mutagen or connet to the Internet')
-            raise Exception('Failed to get info of ' + path)
-
-    def getPath(self, dic,musicId):
-        title = dic['title'][0]
-        artist = dic['artist'][0]
-        album = dic['album'][0]
-        cover = dic['cover'][0]
-        if artist in title:
-            title = title.replace(artist, '').strip()
-        name = (artist + ' - ' + title)
-        for i in '>?*/\:"|<':
-            name = name.replace(i,'-') # form valid file name
-        self.id_mp[musicId] = name
-        self.title[musicId] = title
-        self.artist[musicId] = artist
-        self.album[musicId] = album
-        self.cover[musicId] = cover
-        #print('''{{title: "{title}",artist: "{artist}",mp3: "http://ounix1xcw.bkt.clouddn.com/{name}.mp3",cover: "{cover}",}},'''\
-               #.format(title = title,name = name,artist=artist,cover=dic['cover'][0]))
-        return os.path.join(MSCDIR, name + '.mp3')
+            print('getInfoFromFile: You can use pip3 to install mutagen or connet to the Internet')
+            raise Exception('getInfoFromFile: Failed to get info of ' + path)
+    
+    def getPath(self, dic, musicId):
+        try:
+            title = dic['title'][0]
+            artist = dic['artist'][0]
+            album = dic['album'][0]
+            cover = dic['cover'][0]
+            if artist in title:
+                title = title.replace(artist, '').strip()
+            name = (artist + ' - ' + title)
+            for i in '>?*/\:"|<':
+                name = name.replace(i,'-') # form valid file name
+            self.id_mp[musicId] = name
+            self.title[musicId] = title
+            self.artist[musicId] = artist
+            self.album[musicId] = album
+            self.cover[musicId] = cover
+            #print('''{{title: "{title}",artist: "{artist}",mp3: "http://ounix1xcw.bkt.clouddn.com/{name}.mp3",cover: "{cover}",}},'''\
+                #.format(title = title,name = name,artist=artist,cover=dic['cover'][0]))
+            return os.path.join(MSCDIR, name + '.mp3')
+        except TypeError as e:
+            return os.path.join(MSCDIR, musicId + '.mp3')
     
     def decrypt(self, cachePath):
         musicId = self.getId(cachePath)
@@ -112,7 +122,7 @@ class netease_music:
                 f.write(bytes(self._decrypt(cachePath)))
         except Exception as e:  # from file
             print(e)
-            print ("from file")
+            print ("decrypt: Trying get tags from file..")
             if not os.path.exists(idpath):
                 with open(idpath,'wb') as f:
                     f.write(bytes(self._decrypt(cachePath)))
@@ -146,7 +156,7 @@ class netease_music:
                     f.write(str(lrc))
         except Exception as e:
             print(e,end='')
-            safeprint(': Failed to get lyric of music '+name)
+            safeprint('getLyric: Failed to get lyric of music '+name)
     
     def getMusic(self):
         for ct, cachePath in enumerate(self.files):
@@ -161,10 +171,8 @@ class netease_music:
                 tags['artist'] = self.artist[musicId]
                 tags.save()
             except MutagenError: 
-                print ('Loading EasyID3 tags failed.')
-            
+                print ('getMusic: Loading EasyID3 tags failed.')
             try:
-                # print ('picurl: ' + self.cover[musicId])
                 albumcover = urlopen(self.cover[musicId])
                 try:
                     audio = ID3(mfilepath)
@@ -177,7 +185,9 @@ class netease_music:
                     albumcover.close()
                     audio.save()
                 except ID3NoHeaderError:
-                    print ('Loading ID3 tags failed.')
+                    print ('getMusic: Loading ID3 tags failed.')
+            except KeyError as e:
+                print('Error: cover url is not in the dictionary')
             except HTTPError as e:
                 print('Error code: ', e.code)
             except URLError as e:
