@@ -167,15 +167,15 @@ class netease_music:
                 # print ('picurl: ' + self.cover[musicId])
                 albumcover = urlopen(self.cover[musicId])
                 try:
-                audio = ID3(mfilepath)
-                audio['APIC'] = APIC(
-                      encoding=3,
-                      mime='image/jpeg',
-                      type=3, desc=u'Cover',
-                      data=albumcover.read()
-                    )
-                albumcover.close()
-                audio.save()
+                    audio = ID3(mfilepath)
+                    audio['APIC'] = APIC(
+                          encoding=3,
+                          mime='image/jpeg',
+                          type=3, desc=u'Cover',
+                          data=albumcover.read()
+                        )
+                    albumcover.close()
+                    audio.save()
                 except ID3NoHeaderError:
                 print ('Loading ID3 tags failed.')
             except HTTPError as e:
