@@ -108,7 +108,7 @@ class netease_music:
             #print('''{{title: "{title}",artist: "{artist}",mp3: "http://ounix1xcw.bkt.clouddn.com/{name}.mp3",cover: "{cover}",}},'''\
                 #.format(title = title,name = name,artist=artist,cover=dic['cover'][0]))
             return os.path.join(MSCDIR, name + '.mp3')
-        except TypeError as e:
+        except Exception as e:  # IndexError, TypeError
             return os.path.join(MSCDIR, musicId + '.mp3')
     
     def decrypt(self, cachePath):
