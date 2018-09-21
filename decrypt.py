@@ -19,7 +19,7 @@ API = 'https://api.imjad.cn/cloudmusic/?'
 hasModu = False
 try:
     from mutagen.easyid3 import EasyID3
-    from mutagen.id3 import ID3, APIC
+    from mutagen.id3 import ID3, APIC, ID3NoHeaderError
     from mutagen.mp3 import MP3
     from mutagen import MutagenError
     hasModu = True
@@ -177,13 +177,13 @@ class netease_music:
                     albumcover.close()
                     audio.save()
                 except ID3NoHeaderError:
-                print ('Loading ID3 tags failed.')
+                    print ('Loading ID3 tags failed.')
             except HTTPError as e:
                 print('Error code: ', e.code)
             except URLError as e:
                 print ('Error code: ', e.reason)
             
-            print('[{}]'.format(ct+1).ljust(5) + mfilename + 'NMID' + musicId)
+            print('[{}]'.format(ct+1).ljust(5) + ' [ ' + musicId  + ' ] ' + mfilename)
             self.getLyric(musicId)
 
 
