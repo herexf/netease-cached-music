@@ -183,7 +183,7 @@ class netease_music:
             except URLError as e:
                 print ('Error code: ', e.reason)
             
-            print('[{}]'.format(ct+1).ljust(5) + '[{}]'.musicId.ljust(12) + mfilename)
+            print('[{}]'.format(ct+1).ljust(5) + '[{}]'.format(musicId).ljust(12) + mfilename)
             self.getLyric(musicId)
 
 
