@@ -3,8 +3,11 @@ import os
 import sys
 import glob
 import requests
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
-DESDIR = '../cached_网易云音乐'
+
+DESDIR = '../Decrypted'
 LRCDIR = os.path.join(DESDIR, 'lyric')
 MSCDIR = os.path.join(DESDIR, 'music')
 
@@ -16,7 +19,9 @@ API = 'https://api.imjad.cn/cloudmusic/?'
 hasModu = False
 try:
     from mutagen.easyid3 import EasyID3
+    from mutagen.id3 import ID3, APIC
     from mutagen.mp3 import MP3
+    from mutagen import MutagenError
     hasModu = True
 except:
     pass
@@ -30,7 +35,7 @@ def safeprint(s):
 
 class netease_music:
     def __init__(self, path=''):
-        '''path is the direcoty that contains Music files(cached)'''
+        '''path is the directory that contains Music files(cached)'''
         if path == '':
             path = input('input the path of cached netease_music')
         self.path = path
@@ -38,6 +43,10 @@ class netease_music:
         os.chdir(path)
         self.files = glob.glob('*.uc') + glob.glob('*.uc!')
         self.id_mp = {}
+        self.title = {}
+        self.artist = {}
+        self.album = {}
+        self.cover = {}
         for i in self.files:
             self.id_mp[self.getId(i)] = i
         if not os.path.exists(DESDIR):
@@ -60,6 +69,7 @@ class netease_music:
         dic['artist'] = [info['ar'][0]['name']]
         dic['title'] = [info['name']]
         dic['cover'] = [info['al']['picUrl']]
+        dic['album'] = [info['al']['name']]
         return dic
 
     def getInfoFromFile(self, path):
@@ -75,12 +85,18 @@ class netease_music:
     def getPath(self, dic,musicId):
         title = dic['title'][0]
         artist = dic['artist'][0]
+        album = dic['album'][0]
+        cover = dic['cover'][0]
         if artist in title:
             title = title.replace(artist, '').strip()
-        name = (title + '--' + artist)
+        name = (artist + ' - ' + title)
         for i in '>?*/\:"|<':
             name = name.replace(i,'-') # form valid file name
         self.id_mp[musicId] = name
+        self.title[musicId] = title
+        self.artist[musicId] = artist
+        self.album[musicId] = album
+        self.cover[musicId] = cover
         #print('''{{title: "{title}",artist: "{artist}",mp3: "http://ounix1xcw.bkt.clouddn.com/{name}.mp3",cover: "{cover}",}},'''\
                #.format(title = title,name = name,artist=artist,cover=dic['cover'][0]))
         return os.path.join(MSCDIR, name + '.mp3')
@@ -96,6 +112,7 @@ class netease_music:
                 f.write(bytes(self._decrypt(cachePath)))
         except Exception as e:  # from file
             print(e)
+            print ("from file")
             if not os.path.exists(idpath):
                 with open(idpath,'wb') as f:
                     f.write(bytes(self._decrypt(cachePath)))
@@ -105,7 +122,7 @@ class netease_music:
                 os.remove(idpath)
                 return 
             os.rename(idpath, path)
-            
+    
     def _decrypt(self,cachePath):
         with open(cachePath, 'rb') as f:
             btay = bytearray(f.read())
@@ -130,12 +147,42 @@ class netease_music:
         except Exception as e:
             print(e,end='')
             safeprint(': Failed to get lyric of music '+name)
+    
     def getMusic(self):
         for ct, cachePath in enumerate(self.files):
             self.decrypt(cachePath)
             musicId = self.getId(cachePath)
-            print('[{}]'.format(ct+1).ljust(5)+self.id_mp[musicId])
+            mfilename = self.id_mp[musicId] + '.mp3'
+            mfilepath = os.path.join(MSCDIR, mfilename)
+            try:
+                tags = EasyID3(mfilepath)
+                tags['title'] = self.title[musicId]
+                tags['album'] = self.album[musicId]
+                tags['artist'] = self.artist[musicId]
+                tags.save()
+            except MutagenError: 
+                print ("Loading tags failed")
+            
+            try:
+                # print ('picurl: ' + self.cover[musicId])
+                albumcover = urlopen(self.cover[musicId])
+                audio = ID3(mfilepath)
+                audio['APIC'] = APIC(
+                      encoding=3,
+                      mime='image/jpeg',
+                      type=3, desc=u'Cover',
+                      data=albumcover.read()
+                    )
+                albumcover.close()
+                audio.save()
+            except HTTPError as e:
+                print('Error code: ', e.code)
+            except URLError as e:
+                print('Error code: ', e.reason)
+            
+            print('[{}]'.format(ct+1).ljust(5) + mfilename)
             self.getLyric(musicId)
+
 
 
 if __name__ == '__main__':
